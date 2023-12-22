@@ -2,7 +2,6 @@ import { Construct } from 'constructs'
 import { App, Chart, ChartProps } from 'cdk8s'
 import { join } from 'path'
 import { 
-  Namespace, 
   ClusterRole, 
   ApiResource, 
   NonApiResource, 
@@ -14,12 +13,11 @@ from 'cdk8s-plus-25'
 
 
 export class MyChart extends Chart {
-  constructor(scope: Construct, id: string, props: ChartProps = { }) {
+  constructor(scope: Construct, id: string, props: ChartProps) {
     super(scope, id, props)
-
-    const namespace = new Namespace(this, 'monitoring')
-
+    
     const clusterRole = new ClusterRole(this, 'cluster-role')
+    const serviceAccount = new ServiceAccount(this, 'service-account')
 
     clusterRole.allowRead(ApiResource.NODES) 
     clusterRole.allowRead(ApiResource.SERVICES)
@@ -28,23 +26,25 @@ export class MyChart extends Chart {
     clusterRole.allowRead(ApiResource.INGRESSES)
     clusterRole.allowGet(NonApiResource.of('/metrics'))
 
-    const serviceAccount = new ServiceAccount(this, 'service-account')
     
-    clusterRole.bind(serviceAccount)
+    clusterRole.bindInNamespace('monitoring', serviceAccount)
     
     const configMap = new ConfigMap(this, 'configmap')
-    configMap.addFile(join(__dirname + 'prometheus.yml'))
+    configMap.addFile(join(__dirname + '/prometheus.yml'))
 
     const configVolume = Volume.fromConfigMap(this, 'config-volume', configMap)
     const dataVolume = Volume.fromEmptyDir(this, 'data-volume', 'data')
     
     const deployment = new Deployment(this, 'deployment', {
+
       containers: [ 
         {
           name: 'prometheus',
           image: 'prom/prometheus',
           args: ['--config.file=/etc/prometheus/prometheus.yml'],
           portNumber: 9090,
+          securityContext: {ensureNonRoot: false}
+          
         }
       ]
     })
@@ -56,5 +56,5 @@ export class MyChart extends Chart {
 }
 
 const app = new App()
-new MyChart(app, 'CDK8s-Prometheus')
+new MyChart(app, 'CDK8s-Prometheus', { namespace: 'monitoring' })
 app.synth()
