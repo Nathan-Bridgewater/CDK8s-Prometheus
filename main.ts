@@ -16,9 +16,9 @@ export class MyChart extends Chart {
   constructor(scope: Construct, id: string, props: ChartProps) {
     super(scope, id, props)
     
-    const clusterRole = new ClusterRole(this, 'cluster-role')
     const serviceAccount = new ServiceAccount(this, 'service-account')
-
+    const clusterRole = new ClusterRole(this, 'cluster-role')
+    
     clusterRole.allowRead(ApiResource.NODES) 
     clusterRole.allowRead(ApiResource.SERVICES)
     clusterRole.allowRead(ApiResource.ENDPOINTS)
